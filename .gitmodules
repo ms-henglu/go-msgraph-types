@@ -1,0 +1,3 @@
+[submodule "embed/msgraph-metadata"]
+	path = embed/msgraph-metadata
+	url = git@github.com:microsoftgraph/msgraph-metadata.git
