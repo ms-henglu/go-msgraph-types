@@ -58,20 +58,29 @@ func (r *MSGraphSchemaLoader) GetSchema(apiVersion string) *openapi3.T {
 	return r.schemaMap[apiVersion]
 }
 
-func (r *MSGraphSchemaLoader) ListResources(apiVersion string) []string {
+func (r *MSGraphSchemaLoader) ListResources(apiVersion string) []ResourceType {
 	schema := r.GetSchema(apiVersion)
 	if schema == nil || schema.Paths == nil {
 		return nil
 	}
 
-	var resources []string
+	var resources []ResourceType
+
+	urlMap := make(map[string]string)
+	m := make(map[string]*openapi3.PathItem)
 
 	for path, pathItem := range schema.Paths.Map() {
+		normalizedPath, _, _ := normalizeTemplatedPath(path)
+		m[normalizedPath] = pathItem
+		urlMap[normalizedPath] = path
+	}
+
+	for path, pathItem := range m {
 		if pathItem.Post == nil {
 			continue
 		}
 
-		itemPathItem := schema.Paths.Find(fmt.Sprintf("%s/%s", path, "{id}"))
+		itemPathItem := m[fmt.Sprintf("%s/%s", path, "{}")]
 		if itemPathItem == nil {
 			continue
 		}
@@ -80,10 +89,61 @@ func (r *MSGraphSchemaLoader) ListResources(apiVersion string) []string {
 			continue
 		}
 
-		resources = append(resources, path)
+		resourceType := ResourceType{
+			Type:        "resource",
+			Url:         urlMap[path],
+			Name:        pathItem.Post.Summary,
+			Description: pathItem.Post.Description,
+		}
+
+		if pathItem.Post.ExternalDocs != nil {
+			resourceType.ExternalDocs = &ExternalDocumentation{
+				Description: pathItem.Post.ExternalDocs.Description,
+				Url:         pathItem.Post.ExternalDocs.URL,
+			}
+		}
+
+		resources = append(resources, resourceType)
 	}
 
-	sort.Strings(resources)
+	sort.Slice(resources, func(i, j int) bool {
+		return resources[i].Name < resources[j].Name
+	})
+	return resources
+}
+
+func (r *MSGraphSchemaLoader) ListReadableResources(apiVersion string) []ResourceType {
+	schema := r.GetSchema(apiVersion)
+	if schema == nil || schema.Paths == nil {
+		return nil
+	}
+
+	var resources []ResourceType
+
+	for path, pathItem := range schema.Paths.Map() {
+		if pathItem.Get == nil {
+			continue
+		}
+		resourceType := ResourceType{
+			Type:        "resource",
+			Url:         path,
+			Name:        pathItem.Get.Summary,
+			Description: pathItem.Get.Description,
+		}
+
+		if pathItem.Get.ExternalDocs != nil {
+			resourceType.ExternalDocs = &ExternalDocumentation{
+				Description: pathItem.Get.ExternalDocs.Description,
+				Url:         pathItem.Get.ExternalDocs.URL,
+			}
+		}
+
+		resources = append(resources, resourceType)
+	}
+
+	sort.Slice(resources, func(i, j int) bool {
+		return resources[i].Name < resources[j].Name
+	})
 	return resources
 }
 
@@ -91,7 +151,7 @@ func (r *MSGraphSchemaLoader) ListAPIVersions() []string {
 	return []string{"v1.0", "beta"}
 }
 
-func (r *MSGraphSchemaLoader) GetResourceDefinition(apiVersion, url string) *TypeBase {
+func (r *MSGraphSchemaLoader) GetResourceDefinition(apiVersion, url string) *ResourceType {
 	schema := r.GetSchema(apiVersion)
 	if schema == nil {
 		return nil
@@ -114,6 +174,7 @@ func (r *MSGraphSchemaLoader) GetResourceDefinition(apiVersion, url string) *Typ
 
 	out := ResourceType{
 		Type:        "resource",
+		Url:         url,
 		Name:        postOperation.Summary,
 		Description: postOperation.Description,
 		Body: &TypeReference{
@@ -128,7 +189,7 @@ func (r *MSGraphSchemaLoader) GetResourceDefinition(apiVersion, url string) *Typ
 		}
 	}
 
-	return out.AsTypeBase()
+	return &out
 }
 
 func findOperation(doc *openapi3.T, url string, method string) *openapi3.Operation {
