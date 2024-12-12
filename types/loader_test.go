@@ -32,7 +32,20 @@ func Test_NewMSGraphSchemaLoader(t *testing.T) {
 func Test_ListResources(t *testing.T) {
 	msgraphTypes := DefaultMSGraphSchemaLoader()
 	for _, version := range availableAPIVersions() {
-		if len(msgraphTypes.ListResources(version)) == 0 {
+		resources := msgraphTypes.ListResources(version)
+		t.Logf("resources total: %d for version %s", len(resources), version)
+		if len(resources) == 0 {
+			t.Errorf("expect multiple resources but got 0 for version %s", version)
+		}
+	}
+}
+
+func Test_ListReadableResources(t *testing.T) {
+	msgraphTypes := DefaultMSGraphSchemaLoader()
+	for _, version := range availableAPIVersions() {
+		resources := msgraphTypes.ListReadableResources(version)
+		t.Logf("readable resources total: %d for version %s", len(resources), version)
+		if len(resources) == 0 {
 			t.Errorf("expect multiple resources but got 0 for version %s", version)
 		}
 	}
@@ -72,11 +85,11 @@ func Test_GetResourceDefinition(t *testing.T) {
 func Test_AllMSGraphTypes(t *testing.T) {
 	msgraphTypes := DefaultMSGraphSchemaLoader()
 	for _, apiVersion := range msgraphTypes.ListAPIVersions() {
-		for _, url := range msgraphTypes.ListResources(apiVersion) {
-			log.Printf("loading resource definition for %s api-version %s", url, apiVersion)
-			def := msgraphTypes.GetResourceDefinition(apiVersion, url)
+		for _, res := range msgraphTypes.ListResources(apiVersion) {
+			log.Printf("loading resource definition for %s api-version %s", res.Url, apiVersion)
+			def := msgraphTypes.GetResourceDefinition(apiVersion, res.Url)
 			if def == nil {
-				t.Errorf("failed to load resource definition for %s api-version %s", url, apiVersion)
+				t.Errorf("failed to load resource definition for %s api-version %s", res.Url, apiVersion)
 			}
 		}
 	}

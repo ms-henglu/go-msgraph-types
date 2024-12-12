@@ -10,6 +10,7 @@ var _ TypeBase = &ResourceType{}
 type ResourceType struct {
 	Type               string
 	Name               string
+	Url                string
 	Description        string
 	ExternalDocs       *ExternalDocumentation
 	ScopeTypes         []ScopeType
