@@ -80,13 +80,15 @@ func (r *MSGraphSchemaLoader) ListResources(apiVersion string) []ResourceType {
 			continue
 		}
 
-		itemPathItem := m[fmt.Sprintf("%s/%s", path, "{}")]
-		if itemPathItem == nil {
-			continue
-		}
+		if !strings.Contains(path, "/$ref") {
+			itemPathItem := m[fmt.Sprintf("%s/%s", path, "{}")]
+			if itemPathItem == nil {
+				continue
+			}
 
-		if itemPathItem.Get == nil || itemPathItem.Delete == nil {
-			continue
+			if itemPathItem.Get == nil || itemPathItem.Delete == nil {
+				continue
+			}
 		}
 
 		resourceType := ResourceType{
